@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="PDF2Text OCR Tool for converting scanned PDFs to text using optical character recognition. Free and easy-to-use tool for developers and users alike." />
+  <meta name="keywords" content="PDF to text, OCR tool, optical character recognition, pdfjs, tesseract.js, pdf2text, scanned document text, text extraction, pdf text converter" />
+  <meta name="author" content="Azozz ALFiras" />
+  <meta name="email" content="dev@3zozz.com" />
+  <meta name="github" content="https://github.com/AzozzALFiras/Pdf2Text-OCR" />
+  <title>PDF2Text OCR Tool</title>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.6.172/build/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+
+  <style>
+    .spinner {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: auto;
+    }
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 font-sans max-w-4xl mx-auto p-6">
+  <h1 class="text-2xl font-bold mb-4">PDF2Text OCR Tool</h1>
+  <p>A simple tool for converting PDF to text using OCR. Files are processed locally in the browser.</p>
+
+  <div class="mt-4">
+    <label for="language-select" class="block text-lg font-medium mb-2">Select Language:</label>
+    <select id="language-select" class="block w-full p-2 border border-gray-300 rounded-md mb-4"></select>
+
+    <input type="file" id="file-input" class="hidden" />
+    <label for="file-input" class="block cursor-pointer py-2 px-4 bg-blue-500 text-white text-center rounded-md hover:bg-blue-600">Select PDF File</label>
+  </div>
+
+  <div id="results-container" class="mt-4 p-4 bg-white rounded-md shadow-md" style="min-height: 200px; max-height: 400px; overflow-y: auto;"></div>
+
+  <div id="loading" class="hidden text-center mt-4">
+    <div class="spinner"></div>
+    <p class="mt-2 text-blue-500">Processing... Please wait.</p>
+  </div>
+
+  <div class="mt-4">
+    <button id="copy-button" class="hidden py-2 px-4 bg-green-500 text-white rounded-md hover:bg-green-600">Copy Text</button>
+    <button id="download-button" class="hidden py-2 px-4 bg-red-500 text-white rounded-md hover:bg-red-600">Download as PDF</button>
+  </div>
+
+  <footer class="mt-8 text-center text-gray-500">
+    &copy; <span id="year"></span> PDF2Text OCR Tool. All rights reserved.
+  </footer>
+
+  <script>
+    // Initialize year
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.6.172/build/pdf.worker.js";
+
+    const languages = [
+      { name: "English", code: "eng" },
+      { name: "Arabic", code: "ara" },
+      { name: "Spanish", code: "spa" },
+      { name: "French", code: "fra" },
+      { name: "German", code: "deu" },
+      { name: "Chinese", code: "chi_sim" },
+      { name: "Japanese", code: "jpn" },
+      { name: "Russian", code: "rus" },
+      { name: "Italian", code: "ita" },
+      { name: "Portuguese", code: "por" }
+    ];
+
+    let selectedLanguage = localStorage.getItem("language") || "eng";
+
+    const readFile = (file) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(new Uint8Array(e.target.result));
+      reader.readAsArrayBuffer(file);
+    });
+
+    const convertPdfToImages = async (pdf) => {
+      const images = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        await page.render({
+          canvasContext: canvas.getContext("2d"),
+          viewport,
+        }).promise;
+
+        images.push(canvas.toDataURL("image/png"));
+      }
+      return images;
+    };
+
+    const extractTextFromImages = async (images) => {
+      const worker = await Tesseract.createWorker();
+      await worker.loadLanguage(selectedLanguage);
+      await worker.initialize(selectedLanguage);
+
+      const resultsContainer = document.getElementById("results-container");
+      let fullText = "";
+
+      for (const image of images) {
+        const { data: { text } } = await worker.recognize(image);
+        fullText += text + "\n";
+
+        // Display text incrementally
+        const paragraph = document.createElement("p");
+        paragraph.textContent = text;
+        paragraph.className = "mb-2";
+        resultsContainer.appendChild(paragraph);
+      }
+
+      await worker.terminate();
+      return fullText;
+    };
+
+    const processFile = async (file) => {
+      document.getElementById("loading").classList.remove("hidden");
+      const resultsContainer = document.getElementById("results-container");
+      resultsContainer.innerHTML = "";
+
+      try {
+        const arrayBuffer = await readFile(file);
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const images = await convertPdfToImages(pdf);
+        const extractedText = await extractTextFromImages(images);
+
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("copy-button").classList.remove("hidden");
+        document.getElementById("download-button").classList.remove("hidden");
+
+        // Setup copy and download functionality
+        document.getElementById("copy-button").onclick = () => {
+          navigator.clipboard.writeText(extractedText).then(() => alert("Text copied to clipboard!"));
+        };
+
+        document.getElementById("download-button").onclick = () => {
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF();
+          pdf.text(extractedText, 10, 10);
+          pdf.save("extracted_text.pdf");
+        };
+      } catch (error) {
+        document.getElementById("loading").classList.add("hidden");
+        alert("Error: " + error.message);
+      }
+    };
+
+    // Populate language options
+    const languageSelect = document.getElementById("language-select");
+    languages.forEach(({ name, code }) => {
+      const option = document.createElement("option");
+      option.value = code;
+      option.textContent = name;
+      languageSelect.appendChild(option);
+    });
+
+    languageSelect.value = selectedLanguage;
+    languageSelect.addEventListener("change", (event) => {
+      selectedLanguage = event.target.value;
+      localStorage.setItem("language", selectedLanguage);
+    });
+
+    document.getElementById("file-input").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        await processFile(file);
+      }
+    });
+  </script>
+</body>
+</html>
