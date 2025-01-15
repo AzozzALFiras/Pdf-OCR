@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to PDF Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-teal-100 to-purple-100 flex flex-col items-center justify-center min-h-screen">
+    <header class="bg-gradient-to-r from-teal-500 to-purple-500 w-full py-6 shadow-lg">
+        <h1 class="text-white text-4xl font-extrabold text-center">Image to PDF Converter</h1>
+    </header>
+
+    <main class="bg-white shadow-lg rounded-lg p-8 w-full max-w-3xl mt-8">
+        <h2 class="text-2xl font-bold text-center mb-6 text-gray-700">Upload and Customize Your PDF</h2>
+
+        <label for="pdfTitle" class="block text-gray-600 font-semibold mb-2">PDF Title:</label>
+        <input type="text" id="pdfTitle" placeholder="Enter PDF Title" class="block w-full mb-4 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400" />
+
+        <label for="imageInput" class="block text-gray-600 font-semibold mb-2">Upload Images:</label>
+        <input type="file" id="imageInput" accept="image/*" multiple class="block w-full mb-6 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-400" />
+
+        <div id="imagePreview" class="grid grid-cols-2 gap-4 mb-6"></div>
+
+        <button 
+            id="addImageButton" 
+            class="w-full bg-teal-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-teal-600 transition-all mb-4">
+            Add More Images
+        </button>
+
+        <button 
+            id="convertButton" 
+            class="w-full bg-purple-500 text-white font-semibold py-3 px-4 rounded-lg hover:bg-purple-600 disabled:bg-gray-400 transition-all" 
+            disabled>
+            Convert to PDF
+        </button>
+
+        <p id="statusMessage" class="text-sm text-gray-500 text-center mt-4 hidden">Processing...</p>
+
+        <div id="loadingSpinner" class="hidden flex justify-center items-center mt-4">
+            <svg class="animate-spin h-8 w-8 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path>
+            </svg>
+        </div>
+    </main>
+
+    <footer class="bg-gradient-to-r from-teal-500 to-purple-500 w-full py-6 mt-8">
+        <p class="text-white text-center font-medium">&copy; 2025 Image to PDF Converter</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const imageInput = document.getElementById('imageInput');
+            const addImageButton = document.getElementById('addImageButton');
+            const convertButton = document.getElementById('convertButton');
+            const imagePreview = document.getElementById('imagePreview');
+            const statusMessage = document.getElementById('statusMessage');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const pdfTitleInput = document.getElementById('pdfTitle');
+
+            let images = [];
+
+            function renderImagePreview() {
+                imagePreview.innerHTML = '';
+                images.forEach((image, index) => {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'relative';
+
+                    const img = document.createElement('img');
+                    img.src = image.dataUrl;
+                    img.alt = image.file.name;
+                    img.className = 'w-full h-40 object-cover border border-gray-300 rounded-lg shadow-md';
+                    imgContainer.appendChild(img);
+
+                    const removeButton = document.createElement('button');
+                    removeButton.textContent = 'Remove';
+                    removeButton.className = 'absolute top-2 right-2 bg-red-500 text-white text-xs font-bold py-1 px-2 rounded-full hover:bg-red-600';
+                    removeButton.addEventListener('click', () => {
+                        images.splice(index, 1);
+                        renderImagePreview();
+                        convertButton.disabled = !images.length;
+                    });
+                    imgContainer.appendChild(removeButton);
+
+                    imagePreview.appendChild(imgContainer);
+                });
+            }
+
+            imageInput.addEventListener('change', () => {
+                Array.from(imageInput.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        images.push({ file, dataUrl: event.target.result });
+                        renderImagePreview();
+                        convertButton.disabled = !images.length;
+                    };
+                    reader.readAsDataURL(file);
+                });
+                imageInput.value = '';
+            });
+
+            addImageButton.addEventListener('click', () => {
+                imageInput.click();
+            });
+
+            convertButton.addEventListener('click', async () => {
+                if (!images.length) return;
+
+                const pdfTitle = pdfTitleInput.value.trim() || 'Converted PDF';
+
+                statusMessage.classList.remove('hidden');
+                loadingSpinner.classList.remove('hidden');
+
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF();
+
+                for (let i = 0; i < images.length; i++) {
+                    const { dataUrl } = images[i];
+                    const img = new Image();
+                    img.src = dataUrl;
+
+                    await new Promise(resolve => {
+                        img.onload = function() {
+                            const width = pdf.internal.pageSize.getWidth();
+                            const height = pdf.internal.pageSize.getHeight();
+
+                            if (i > 0) pdf.addPage();
+                            pdf.addImage(img, 'JPEG', 0, 0, width, height);
+
+                            pdf.setFontSize(10);
+                            pdf.text(`${i + 1} / ${images.length}`, width - 20, height - 10);
+                            resolve();
+                        };
+                    });
+                }
+
+                pdf.setProperties({ title: pdfTitle });
+
+                pdf.save(`${pdfTitle}.pdf`);
+
+                statusMessage.classList.add('hidden');
+                loadingSpinner.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
