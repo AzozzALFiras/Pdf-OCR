@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="PDF2Text OCR Tool for converting scanned PDFs to text using optical character recognition. Free and easy-to-use tool for developers and users alike." />
-  <meta name="keywords" content="PDF to text, OCR tool, optical character recognition, pdfjs, tesseract.js, pdf2text, scanned document text, text extraction, pdf text converter" />
+  <meta name="description" content="PDF2Text OCR Tool for converting scanned PDFs and images to text using optical character recognition. Free and easy-to-use tool for developers and users alike." />
+  <meta name="keywords" content="PDF to text, OCR tool, optical character recognition, image OCR, pdfjs, tesseract.js, text extraction, pdf text converter" />
   <meta name="author" content="Azozz ALFiras" />
   <meta name="email" content="dev@3zozz.com" />
   <meta name="github" content="https://github.com/AzozzALFiras/Pdf2Text-OCR" />
@@ -38,7 +38,7 @@
 
 <body class="bg-gray-50 text-gray-800 font-sans max-w-4xl mx-auto p-6">
   <h1 class="text-2xl font-bold mb-4">PDF2Text OCR Tool</h1>
-  <p>A simple tool for converting PDF to text using OCR. Files are processed locally in the browser.</p>
+  <p>A simple tool for converting PDFs and images to text using OCR. Files are processed locally in the browser.</p>
 
   <div class="mt-4">
     <label for="language-select" class="block text-lg font-medium mb-2">Select Language:</label>
@@ -46,6 +46,9 @@
 
     <input type="file" id="file-input" class="hidden" />
     <label for="file-input" class="block cursor-pointer py-2 px-4 bg-blue-500 text-white text-center rounded-md hover:bg-blue-600">Select PDF File</label>
+    
+    <input type="file" id="image-input" accept="image/*" class="hidden" />
+    <label for="image-input" class="block cursor-pointer py-2 px-4 bg-blue-500 text-white text-center rounded-md hover:bg-blue-600 mt-4">Select Image File</label>
   </div>
 
   <div id="results-container" class="mt-4 p-4 bg-white rounded-md shadow-md" style="min-height: 200px; max-height: 400px; overflow-y: auto;"></div>
@@ -65,7 +68,6 @@
   </footer>
 
   <script>
-    // Initialize year
     document.getElementById("year").textContent = new Date().getFullYear();
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.6.172/build/pdf.worker.js";
@@ -122,7 +124,6 @@
         const { data: { text } } = await worker.recognize(image);
         fullText += text + "\n";
 
-        // Display text incrementally
         const paragraph = document.createElement("p");
         paragraph.textContent = text;
         paragraph.className = "mb-2";
@@ -148,7 +149,6 @@
         document.getElementById("copy-button").classList.remove("hidden");
         document.getElementById("download-button").classList.remove("hidden");
 
-        // Setup copy and download functionality
         document.getElementById("copy-button").onclick = () => {
           navigator.clipboard.writeText(extractedText).then(() => alert("Text copied to clipboard!"));
         };
@@ -165,7 +165,55 @@
       }
     };
 
-    // Populate language options
+    const processImage = async (file) => {
+      document.getElementById("loading").classList.remove("hidden");
+      const resultsContainer = document.getElementById("results-container");
+      resultsContainer.innerHTML = "";
+
+      try {
+        const imageURL = URL.createObjectURL(file);
+
+        const worker = await Tesseract.createWorker();
+        await worker.loadLanguage(selectedLanguage);
+        await worker.initialize(selectedLanguage);
+
+        const { data: { text } } = await worker.recognize(imageURL);
+        resultsContainer.innerHTML = `<p>${text}</p>`;
+
+        document.getElementById("loading").classList.add("hidden");
+        document.getElementById("copy-button").classList.remove("hidden");
+        document.getElementById("download-button").classList.remove("hidden");
+
+        document.getElementById("copy-button").onclick = () => {
+          navigator.clipboard.writeText(text).then(() => alert("Text copied to clipboard!"));
+        };
+
+        document.getElementById("download-button").onclick = () => {
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF();
+          pdf.text(text, 10, 10);
+          pdf.save("extracted_text.pdf");
+        };
+      } catch (error) {
+        document.getElementById("loading").classList.add("hidden");
+        alert("Error: " + error.message);
+      }
+    };
+
+    document.getElementById("file-input").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        await processFile(file);
+      }
+    });
+
+    document.getElementById("image-input").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        await processImage(file);
+      }
+    });
+
     const languageSelect = document.getElementById("language-select");
     languages.forEach(({ name, code }) => {
       const option = document.createElement("option");
@@ -178,13 +226,6 @@
     languageSelect.addEventListener("change", (event) => {
       selectedLanguage = event.target.value;
       localStorage.setItem("language", selectedLanguage);
-    });
-
-    document.getElementById("file-input").addEventListener("change", async (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        await processFile(file);
-      }
     });
   </script>
 </body>
