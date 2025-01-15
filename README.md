@@ -1,13 +1,15 @@
-# PDF2Text OCR Tool
+# PDF2Text OCR Tool with Image to PDF and Image OCR
 
-A simple, free, and easy-to-use tool for converting scanned PDF files to text using Optical Character Recognition (OCR). The tool processes files locally in the browser, allowing developers and users to extract text from PDF documents.
+A simple, free, and easy-to-use tool for converting scanned PDF files, images, and documents to text using Optical Character Recognition (OCR). This tool processes files locally in the browser, allowing developers and users to extract text from PDF documents and images, as well as convert images into PDFs.
 
 ## Features
 
 - **OCR-powered PDF to Text Conversion**: Extract text from scanned PDF files using Tesseract.js.
-- **Multi-language Support**: Supports a variety of languages including English, Arabic, Spanish, French, and more.
-- **Downloadable Output**: Extracted text can be downloaded as a PDF file.
-- **Copy to Clipboard**: The extracted text can be copied to the clipboard.
+- **Image OCR**: Extract text from images (JPG, PNG, etc.) using OCR technology.
+- **Multi-language Support**: Supports various languages including English, Arabic, Spanish, French, and more.
+- **Image to PDF Conversion**: Convert images (JPG, PNG, etc.) into a PDF file.
+- **Downloadable Output**: Extracted text can be downloaded as a PDF file or plain text file.
+- **Copy to Clipboard**: The extracted text can be copied to the clipboard for easy pasting.
 - **Local Processing**: All processing is done locally in the browser, ensuring privacy and security.
   
 ## Technologies
